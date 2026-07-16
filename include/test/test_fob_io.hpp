@@ -1,8 +1,8 @@
-#include "get_utf8_argv.hpp"
-#include "print_utf8.hpp"
+#include <fob/io.hpp>
 
 // 测试函数：验证命令行参数解析和 UTF8 输出
 void test_utf8_utils(int argc, char* argv[]) {
+    using namespace fob::io;
     println_utf8("========== 测试 get_utf8_argv ==========");
 
     auto args = get_utf8_argv(argc, argv);
@@ -29,7 +29,7 @@ void test_utf8_utils(int argc, char* argv[]) {
 }
 
 // 主函数
-int test_std_io(int argc, char* argv[]) {
+int test_fob_io(int argc, char* argv[]) {
     test_utf8_utils(argc, argv);
     return 0;
 }

@@ -1,13 +1,14 @@
-#pragma once
-
-#include <vector>
-#include <string>
+#include <cstdio>
+#include <string_view>
 
 #ifdef _WIN32
     #include <windows.h>
 #endif
 
-// 跨平台获取 UTF-8 编码的命令行参数列表
+#include<fob/io.hpp>
+
+namespace fob::io{
+
 std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
     std::vector<std::u8string> result;
 
@@ -106,3 +107,61 @@ std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
 
     return result;
 }
+
+void print_utf8(std::string const& utf8_str) {
+#ifdef _WIN32
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hConsole != INVALID_HANDLE_VALUE && hConsole != NULL) {
+        DWORD fileType = GetFileType(hConsole);
+        // 判断是否为控制台(字符设备)
+        if (fileType == FILE_TYPE_CHAR) {
+            // 将 UTF8 转为 UTF16
+            int wlen = MultiByteToWideChar(
+                CP_UTF8, 0,
+                utf8_str.data(), static_cast<int>(utf8_str.size()),
+                nullptr, 0
+            );
+            if (wlen > 0) {
+                std::wstring wstr(static_cast<size_t>(wlen), L'\0');
+                MultiByteToWideChar(
+                    CP_UTF8, 0,
+                    utf8_str.data(), static_cast<int>(utf8_str.size()),
+                    wstr.data(), wlen
+                );
+                DWORD written;
+                WriteConsoleW(
+                    hConsole, wstr.data(), static_cast<DWORD>(wstr.size()),
+                    &written, nullptr
+                );
+                return;
+            }
+        }
+    }
+    // 非控制台(如重定向到文件)或转换失败,直接写入 UTF8 字节流
+    fwrite(utf8_str.data(), 1, utf8_str.size(), stdout);
+#else
+    // Linux / macOS 终端默认 UTF‑8,直接输出
+    fwrite(utf8_str.data(), 1, utf8_str.size(), stdout);
+#endif
+}
+
+void print_utf8(std::u8string const& utf8_str) {
+    // 将 u8string 转为普通 string(仅 reinterpret,不改变数据)
+    std::string_view sv(
+        reinterpret_cast<const char*>(utf8_str.data()),
+        utf8_str.size()
+    );
+    print_utf8(std::string(sv));
+}
+
+void println_utf8(std::string const& utf8_str) {
+    print_utf8(utf8_str);
+    print_utf8("\n");
+}
+
+void println_utf8(std::u8string const& utf8_str) {
+    print_utf8(utf8_str);
+    print_utf8("\n");
+}
+
+}//namespace obfus::io
