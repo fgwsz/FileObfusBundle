@@ -4,3 +4,4 @@
 #include<fob/io.hpp>
 #include<fob/exception.hpp>
 #include<fob/endian.hpp>
+#include<fob/random.hpp>
