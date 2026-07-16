@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <string_view>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -7,18 +6,10 @@
 
 #include<fob/io.hpp>
 
-namespace fob::io{
+namespace fob{
 
-std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
-    std::vector<std::u8string> result;
-
-    // 辅助 lambda:将 std::string (UTF-8) 转为 std::u8string
-    auto to_u8string = [](const std::string& s) -> std::u8string {
-        return std::u8string(
-            reinterpret_cast<const char8_t*>(s.data()),
-            s.size()
-        );
-    };
+std::vector<std::string> get_args(int argc, char* argv[]) {
+    std::vector<std::string> result;
 
 #ifdef _WIN32
     // -------------------- Windows 专用 --------------------
@@ -59,20 +50,20 @@ std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
                 if (backslash_count % 2 == 1) {
                     // 保留 (backslash_count/2) 个反斜杠(取整)
                     for (int i = 0; i < backslash_count / 2; ++i)
-                        cur.push_back(L'\\');
-                    cur.push_back(L'"');  // 引号作为普通字符
+                        cur.emplace_back(L'\\');
+                    cur.emplace_back(L'"');  // 引号作为普通字符
                     continue;
                 }
                 // 偶数个反斜杠 → 引号是元字符
                 // 保留一半反斜杠
                 for (int i = 0; i < backslash_count / 2; ++i)
-                    cur.push_back(L'\\');
+                    cur.emplace_back(L'\\');
                 // 切换引号状态
                 in_quotes = !in_quotes;
             } else if (!in_quotes && (*p == L' ' || *p == L'\t')) {
                 // 空白分隔符:结束当前参数
                 if (!cur.empty()) {
-                    args.push_back(cur);
+                    args.emplace_back(cur);
                     cur.clear();
                 }
                 // 跳过连续空白
@@ -80,12 +71,12 @@ std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
                     ++p;
             } else {
                 // 普通字符
-                cur.push_back(*p);
+                cur.emplace_back(*p);
             }
         }
         // 最后一个参数
         if (!cur.empty())
-            args.push_back(cur);
+            args.emplace_back(cur);
         return args;
     };
 
@@ -94,21 +85,21 @@ std::vector<std::u8string> get_utf8_argv(int argc, char* argv[]) {
     auto wargs = parse_command_line(cmdline);
     for (const auto& warg : wargs) {
         std::string utf8_arg = wstring_to_utf8(warg);
-        result.push_back(to_u8string(utf8_arg));
+        result.emplace_back(utf8_arg);
     }
 
 #else
     // -------------------- Linux / macOS --------------------
     // 假定 argv 为 UTF-8 编码
     for (int i = 0; i < argc; ++i) {
-        result.push_back(to_u8string(std::string(argv[i])));
+        result.emplace_back(std::string(argv[i]));
     }
 #endif
 
     return result;
 }
 
-void print_utf8(std::string const& utf8_str) {
+void print(std::string_view str) {
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hConsole != INVALID_HANDLE_VALUE && hConsole != NULL) {
@@ -118,14 +109,14 @@ void print_utf8(std::string const& utf8_str) {
             // 将 UTF8 转为 UTF16
             int wlen = MultiByteToWideChar(
                 CP_UTF8, 0,
-                utf8_str.data(), static_cast<int>(utf8_str.size()),
+                str.data(), static_cast<int>(str.size()),
                 nullptr, 0
             );
             if (wlen > 0) {
                 std::wstring wstr(static_cast<size_t>(wlen), L'\0');
                 MultiByteToWideChar(
                     CP_UTF8, 0,
-                    utf8_str.data(), static_cast<int>(utf8_str.size()),
+                    str.data(), static_cast<int>(str.size()),
                     wstr.data(), wlen
                 );
                 DWORD written;
@@ -138,30 +129,16 @@ void print_utf8(std::string const& utf8_str) {
         }
     }
     // 非控制台(如重定向到文件)或转换失败,直接写入 UTF8 字节流
-    fwrite(utf8_str.data(), 1, utf8_str.size(), stdout);
+    fwrite(str.data(), 1, str.size(), stdout);
 #else
     // Linux / macOS 终端默认 UTF‑8,直接输出
-    fwrite(utf8_str.data(), 1, utf8_str.size(), stdout);
+    fwrite(str.data(), 1, str.size(), stdout);
 #endif
 }
 
-void print_utf8(std::u8string const& utf8_str) {
-    // 将 u8string 转为普通 string(仅 reinterpret,不改变数据)
-    std::string_view sv(
-        reinterpret_cast<const char*>(utf8_str.data()),
-        utf8_str.size()
-    );
-    print_utf8(std::string(sv));
+void println(std::string_view str) {
+    print(str);
+    print("\n");
 }
 
-void println_utf8(std::string const& utf8_str) {
-    print_utf8(utf8_str);
-    print_utf8("\n");
-}
-
-void println_utf8(std::u8string const& utf8_str) {
-    print_utf8(utf8_str);
-    print_utf8("\n");
-}
-
-}//namespace obfus::io
+}//namespace fob 

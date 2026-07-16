@@ -6,6 +6,7 @@ if(!($commit_message -eq "q")){
     cd $project_path
     git add ./include/*
     git add ./src/*
+    git add ./tests/*
     git add ./CMakeLists.txt
     git add ./LICENSE
     git add ./README.md
