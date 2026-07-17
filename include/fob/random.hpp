@@ -1,10 +1,6 @@
 #pragma once
 
-#include <random>
 #include <concepts>
-#include <limits>
-
-#include <fob/exception.hpp>
 
 namespace fob {
 
@@ -16,16 +12,6 @@ namespace fob {
 template <typename T>
 concept random_number =
     std::integral<T> && !std::same_as<T, bool> || std::floating_point<T>;
-
-// -------------------- 默认随机引擎(线程安全本地静态) --------------------
-
-namespace detail {
-    inline std::mt19937& default_engine(void) {
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        return gen;
-    }
-}
 
 // -------------------- 半开区间随机数 [begin, end) --------------------
 
@@ -43,19 +29,7 @@ namespace detail {
  */
 template <fob::random_number Number, typename Generator>
     requires std::uniform_random_bit_generator<Generator>
-inline Number random(Number begin, Number end, Generator& gen) {
-    if (begin >= end) {
-        throw fob::Exception("begin must be < end");
-    }
-
-    if constexpr (std::integral<Number>) {
-        std::uniform_int_distribution<Number> distrib(begin, end - 1);
-        return distrib(gen);
-    } else {
-        std::uniform_real_distribution<Number> distrib(begin, end);
-        return distrib(gen);
-    }
-}
+Number random(Number begin, Number end, Generator& gen);
 
 /**
  * @brief 生成半开区间 [begin, end) 内的随机数(包含 begin,不包含 end).
@@ -69,9 +43,7 @@ inline Number random(Number begin, Number end, Generator& gen) {
  * @note 使用默认 mt19937 引擎.
  */
 template <fob::random_number Number>
-inline Number random(Number begin, Number end) {
-    return random(begin, end, detail::default_engine());
-}
+Number random(Number begin, Number end);
 
 // -------------------- 闭区间随机数 [begin, finish] --------------------
 
@@ -89,22 +61,7 @@ inline Number random(Number begin, Number end) {
  */
 template <fob::random_number Number, typename Generator>
     requires std::uniform_random_bit_generator<Generator>
-inline Number random_closed(Number begin, Number finish, Generator& gen) {
-    if (begin > finish) {
-        throw fob::Exception("begin must be <= finish");
-    }
-
-    if constexpr (std::integral<Number>) {
-        std::uniform_int_distribution<Number> distrib(begin, finish);
-        return distrib(gen);
-    } else {
-        // 浮点数闭区间:扩展上限至下一个可表示浮点数
-        auto upper =
-            std::nextafter(finish, std::numeric_limits<Number>::max());
-        std::uniform_real_distribution<Number> distrib(begin, upper);
-        return distrib(gen);
-    }
-}
+Number random_closed(Number begin, Number finish, Generator& gen);
 
 /**
  * @brief 生成闭区间 [begin, finish] 内的随机数(整数和浮点数均支持).
@@ -118,8 +75,8 @@ inline Number random_closed(Number begin, Number finish, Generator& gen) {
  * @note 使用默认 mt19937 引擎.
  */
 template <fob::random_number Number>
-inline Number random_closed(Number begin, Number finish) {
-    return random_closed(begin, finish, detail::default_engine());
-}
+Number random_closed(Number begin, Number finish);
 
 } // namespace fob
+
+#include<fob/internal/random_impl.hpp>
